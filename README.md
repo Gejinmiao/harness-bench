@@ -52,15 +52,31 @@
   - **OpenClaw**：`openclaw` 命令加入 PATH
 - 模型 API Key（kiri 会自动读取其 `kiri-data/console/config.json`，也可用参数显式指定）
 
-### 2. 配置模型（kiri）
+### 2. 配置模型
 
-三种方式任选：
+**kiri**（三种方式任选）：
 
 ```bash
 # 方式一：kiri 自己的配置文件 output/kiri-data/console/config.json（自动加载）
 # 方式二：命令行参数
 python -u harness-runner.py --agent kiri --provider deepseek --model deepseek-v4-flash --api-key sk-xxxx
 # 方式三：环境变量（kiri 原生支持）
+```
+
+**OpenClaw**：OpenClaw 用自己的配置系统管理模型，runner 不传 key，只要 `openclaw` 命令可用且已配置好模型：
+
+```bash
+# 方式一：环境变量（优先级最高）
+export DEEPSEEK_API_KEY="sk-xxxx"        # DeepSeek
+export ANTHROPIC_API_KEY="sk-ant-xxxx"   # Anthropic
+# 方式二：CLI 配置（写入 ~/.openclaw/openclaw.json，持久化）
+openclaw config set models.providers.deepseek.apiKey "sk-xxxx"
+openclaw models set deepseek/deepseek-v4-flash
+# 方式三：交互式向导
+openclaw onboard
+# 验证
+openclaw models list
+openclaw models status
 ```
 
 ### 3. 运行
@@ -122,6 +138,8 @@ harness-bench/
 
 > 请评测我当前环境的 Agent Harness 能力，用 HarnessBench 基准：
 > 1. 克隆仓库 `https://github.com/Gejinmiao/harness-bench.git`，进入 `harness-bench` 目录；
-> 2. 确认 Python 3.10+ 和 agent 后端（kiri 或 openclaw）可用，配置模型 API Key；
-> 3. 运行 `python -u harness-runner.py --agent <kiri|openclaw> --runs 5` 执行全量 26 个任务，每个任务测 5 次取平均；
+> 2. 确认 Python 3.10+ 与 agent 后端可用：
+>    - **kiri**：`kiri.exe` 在 PATH 或用 `--agent-path` 指定；模型用 `--provider/--model/--api-key` 指定，或沿用 kiri 自身配置；
+>    - **openclaw**：`openclaw` 命令在 PATH 且已配置好可用模型（openclaw 用自己的配置系统：环境变量 `DEEPSEEK_API_KEY` 等，或 `~/.openclaw/openclaw.json`，或 `openclaw models set <provider>/<model>`）；
+> 3. 运行 `python -u harness-runner.py --agent <kiri|openclaw> --runs 5` 执行全量 26 个任务，每个任务测 5 次取平均作为最终成绩；
 > 4. 完成后读取 `results/<最新时间戳>/summary.json` 与 `report.md`，汇报：综合分、pass@1 通过率、难度加权分、Token 效率分、总 Token 消耗、分难度通过率，以及失败任务及原因。
