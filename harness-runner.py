@@ -298,6 +298,77 @@ def build_adapter(agent: str, agent_path: str | None, extra: dict) -> AgentAdapt
 
 
 # ---------------------------------------------------------------------------
+# 环境自检: 告诉用户缺什么、怎么补 (别的 agent 拿到项目后先跑这个)
+# ---------------------------------------------------------------------------
+
+def check_env():
+    print("=== HarnessBench 环境自检 ===\n")
+
+    ok_all = True
+
+    def mark(ok: bool, label: str, hint: str = "", fatal: bool = True):
+        """fatal=False 的项只报告不判失败 (如 openclaw: 只用 openclaw 驱动时才需要)。"""
+        nonlocal ok_all
+        if fatal:
+            ok_all = ok_all and ok
+        print(f"  [{'OK  ' if ok else '缺失'}] {label}" + (f"\n         → {hint}" if hint and not ok else ""))
+
+    # Python
+    mark(sys.version_info >= (3, 10), f"Python >= 3.10 (当前 {sys.version.split()[0]})",
+         "安装 Python 3.10+ 并加入 PATH")
+
+    # kiri 探测
+    kiri_paths = []
+    if sys.platform == "win32":
+        kiri_paths = [str(PROJECT_ROOT / "output" / "kiri.exe"), "kiri.exe", "kiri"]
+    else:
+        kiri_paths = [str(PROJECT_ROOT / "output" / "kiri"), "kiri"]
+    kiri_found = None
+    for p in kiri_paths:
+        if os.path.isabs(p) and Path(p).exists():
+            kiri_found = p
+            break
+        if shutil.which(p):
+            kiri_found = p
+            break
+    kiri_ok = bool(kiri_found)
+    mark(kiri_ok, f"kiri 可执行文件 ({kiri_found or '未找到'})",
+         "把 kiri.exe 放到仓库父目录 output/ 下，或用 --agent-path 指定路径")
+
+    # kiri 模型配置 (key): 不需要用户传, runner 自动读取配置文件/环境变量
+    conf = KiriAdapter._load_config(str(kiri_found or "kiri"))
+    key_ok = bool(conf.get("api_key"))
+    kiri_ready = kiri_ok and key_ok
+    mark(key_ok,
+         "kiri 模型 API Key" + (f" (provider={conf.get('provider')} model={conf.get('model')})" if conf.get("provider") else ""),
+         "不要去问用户要 key、也不要传 --api-key。kiri 会自动读取 output/kiri-data/console/config.json 里的 "
+         "provider/model/apiKey，或从环境变量读取；请去这些位置确认 key 已配置。若确无配置，如实告诉用户环境缺 key，"
+         "让用户在 kiri 控制台配置好后重跑 --check")
+
+    # openclaw 探测 (非致命: 只有选 openclaw 驱动时才需要)
+    openclaw_found = shutil.which("openclaw") or shutil.which("openclaw.exe")
+    openclaw_ok = bool(openclaw_found)
+    mark(openclaw_ok, f"openclaw 命令 ({openclaw_found or '未找到'})",
+         "安装 openclaw 并加入 PATH；模型用 openclaw 自身配置 (DEEPSEEK_API_KEY 环境变量 / ~/.openclaw/openclaw.json / openclaw models set)",
+         fatal=False)
+
+    print("\n=== 结论 ===")
+    if kiri_ready:
+        print("kiri 已就绪，可直接运行：python -u harness-runner.py --agent kiri --runs 5")
+        if not openclaw_ok:
+            print("(openclaw 未安装，仅在用 openclaw 驱动时需要，可忽略)")
+        return 0
+    if openclaw_ok:
+        print("kiri 未就绪但 openclaw 可用，改用 openclaw 驱动：")
+        print("  冒烟: python -u harness-runner.py --agent openclaw --tasks l1-hello --runs 1")
+        print("  全量: python -u harness-runner.py --agent openclaw --runs 5")
+        print("(openclaw 模型配置由 openclaw 自身管理；若冒烟报错说明模型未配置好)")
+        return 0
+    print("两个后端都未就绪，按上面的提示补齐任意一个后再跑。")
+    return 1
+
+
+# ---------------------------------------------------------------------------
 # 自检: 不调 agent, 验证任务定义本身 (setup 可运行, verify 能识别"未完成")
 # ---------------------------------------------------------------------------
 
@@ -371,6 +442,7 @@ def main():
     ap.add_argument("--level", type=int, default=None, help="只跑某一级 (1-5)")
     ap.add_argument("--timeout", type=int, default=600, help="单次 agent 调用超时秒数 (默认 600)")
     ap.add_argument("--keep-ws", action="store_true", help="保留临时 workspace (默认自动删除)")
+    ap.add_argument("--check", action="store_true", help="环境自检: 检测 Python/kiri/openclaw/API Key, 报告缺什么")
     ap.add_argument("--selftest", action="store_true", help="只做任务定义自检, 不调 agent")
     ap.add_argument("--tools", default=KiriAdapter.DEFAULT_TOOLS,
                     help="kiri 的 --tools 白名单 (默认 read,bash,edit,write,grep,find,ls)")
@@ -382,6 +454,8 @@ def main():
 
     if args.runs < 1 or args.runs > 5:
         raise SystemExit("[ERROR] --runs 范围 1..5")
+    if args.check:
+        sys.exit(check_env())
     if args.selftest:
         sys.exit(selftest())
 
