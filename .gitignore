@@ -1,0 +1,8 @@
+# 测试结果 / 运行时产物
+results/
+__pycache__/
+*.pyc
+
+# 本地敏感配置（如含 API key 的环境文件）
+.env
+*.local
