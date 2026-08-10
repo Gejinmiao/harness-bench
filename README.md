@@ -7,6 +7,33 @@
 - **[kiri](https://github.com/Gejinmiao/kiri-portable)** — `kiri.exe -p <prompt> --mode json`（NDJSON 输出，逐轮累加 token usage）
 - **OpenClaw** — `openclaw agent exec --cwd <ws> --message-file <file> --json`
 
+
+
+使用：
+请用 HarnessBench 基准评测当前环境的 Agent Harness 能力。严格按下面步骤执行，不要跳过、不要向用户索要任何 API Key：
+
+第 1 步 · 准备
+1. 克隆仓库 https://github.com/Gejinmiao/harness-bench.git ，进入 harness-bench 目录；
+2. 确认 Python 3.10+ 可用（python --version）。
+
+第 2 步 · 环境自检（必做，不要跳过）
+3. 运行 python -u harness-runner.py --check，它会探测 Python / kiri / openclaw / 模型 API Key 是否就绪，并给出缺失项的补救提示；
+4. 根据输出补齐缺失项：
+   - kiri 缺失：把 kiri.exe 放到仓库父目录 output/ 下，或加入 PATH，或用 --agent-path 指定；
+   - openclaw 缺失：确认 openclaw 命令在 PATH（只用 openclaw 驱动时需要，用 kiri 可忽略）；
+   - API Key 缺失：不要向用户索要 key。kiri 会自动读取 output/kiri-data/console/config.json 里的 provider/model/apiKey；openclaw 用自身配置系统（环境变量如 DEEPSEEK_API_KEY、~/.openclaw/openclaw.json、openclaw models set）。运行命令时不要传 --api-key 参数，让 runner 自动读取。若确实找不到，如实告诉用户环境缺 key。
+5. 自检全部 OK 后继续；kiri 可用优先用 kiri，否则用 openclaw。
+
+第 3 步 · 冒烟验证（小步快跑，别直接上全量）
+6. 先只跑 1 个最简单任务验证整条链路：python -u harness-runner.py --agent kiri --tasks l1-hello --runs 1（仅 1 次调用）；
+7. 看到 [PASS] l1-hello 再继续；若失败，先修环境/配置问题，不要带病跑全量（全量 130 次调用，中途失败损失很大）。
+
+第 4 步 · 全量评测
+8. 运行 python -u harness-runner.py --agent kiri --runs 5（26 任务 × 5 次 = 130 次调用，耗时较长属正常，耐心等待，不要中断）；
+9. 若必须中断或某任务批量失败，可用 --tasks <id列表> 或 --level <1-5> 分段补跑。
+
+第 5 步 · 汇报结果
+10. 读取 results/<最新时间戳>/summary.json 与 report.md，汇报：综合分、pass@1 通过率、难度加权分、Token 效率分、总 Token 消耗、分难度通过率，以及每个失败任务及失败原因。
 ---
 
 ## 任务集（26 个，5 级难度）
