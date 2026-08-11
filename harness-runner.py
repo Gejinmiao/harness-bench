@@ -1,13 +1,13 @@
 """Harness 评测主驱动脚本 (跨平台 Win/Linux)。
 
 用法示例:
-  python harness-runner.py --agent kiri --level 1                # 只跑 L1, 每任务默认 5 次
-  python harness-runner.py --agent kiri --runs 5                 # 全 26 任务, 每任务 5 次取平均
+  python harness-runner.py --agent imo --level 1                # 只跑 L1, 每任务默认 5 次
+  python harness-runner.py --agent imo --runs 5                 # 全 26 任务, 每任务 5 次取平均
   python harness-runner.py --agent openclaw --runs 5             # 用 OpenClaw 驱动
   python harness-runner.py --selftest                            # 自检: 不调 agent, 只验证任务定义
 
 兼容的 agent 后端:
-  - kiri      : kiri.exe -p <prompt> --mode json ... (NDJSON 输出, message_end 事件含 usage)
+  - imo      : imo.exe -p <prompt> --mode json ... (NDJSON 输出, message_end 事件含 usage)
   - openclaw  : openclaw agent exec --cwd <ws> --message-file <file> --json (单个 JSON 输出)
 
 每个任务流程: setup(ws) -> agent.run(ws, instruction) -> verify(ws) -> 记录通过/token/耗时
@@ -29,9 +29,9 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 
 
-def default_kiri_exe() -> str:
-    """kiri 可执行文件: 优先仓库父目录 output/kiri(.exe), 否则回退到 PATH 中的 kiri。"""
-    exe_name = "kiri.exe" if sys.platform == "win32" else "kiri"
+def default_imo_exe() -> str:
+    """imo 可执行文件: 优先仓库父目录 output/imo(.exe), 否则回退到 PATH 中的 imo。"""
+    exe_name = "imo.exe" if sys.platform == "win32" else "imo"
     p = PROJECT_ROOT / "output" / exe_name
     if p.exists():
         return str(p)
@@ -112,8 +112,8 @@ class AgentAdapter:
         raise NotImplementedError
 
 
-class KiriAdapter(AgentAdapter):
-    """kiri.exe -p <prompt> --mode json --no-session --no-approve --tools ..."""
+class ImoAdapter(AgentAdapter):
+    """imo.exe -p <prompt> --mode json --no-session --no-approve --tools ..."""
 
     DEFAULT_TOOLS = "read,bash,edit,write,grep,find,ls"
 
@@ -122,7 +122,7 @@ class KiriAdapter(AgentAdapter):
                  api_key: str | None = None):
         super().__init__(exe)
         self.tools = tools
-        # 未显式指定的模型配置: 从 kiri-data/console/config.json 自动加载
+        # 未显式指定的模型配置: 从 imo-data/console/config.json 自动加载
         conf = self._load_config(exe)
         self.provider = provider or conf.get("provider")
         self.model = model or conf.get("model")
@@ -130,12 +130,12 @@ class KiriAdapter(AgentAdapter):
 
     @staticmethod
     def _load_config(exe: str) -> dict:
-        """读取 kiri 的 console config (kiri-data/console/config.json), 提取模型配置。
+        """读取 imo 的 console config (imo-data/console/config.json), 提取模型配置。
 
         console 界面里的 provider 名 (如 opencode-zen) 是自定义注册名,
-        CLI 模式需要 kiri 内置的 provider id (如 opencode), 这里做映射。
+        CLI 模式需要 imo 内置的 provider id (如 opencode), 这里做映射。
         """
-        # console 自定义 provider 名 -> kiri 内置 provider id
+        # console 自定义 provider 名 -> imo 内置 provider id
         PROVIDER_MAP = {
             "opencode-zen": "opencode",
             "opencode-go": "opencode-go",
@@ -143,7 +143,7 @@ class KiriAdapter(AgentAdapter):
         candidates = []
         exe_dir = Path(exe).resolve().parent
         for root in (exe_dir, PROJECT_ROOT, Path.cwd()):
-            candidates.append(root / "kiri-data" / "console" / "config.json")
+            candidates.append(root / "imo-data" / "console" / "config.json")
         for p in candidates:
             if p.exists():
                 try:
@@ -286,15 +286,15 @@ class OpenClawAdapter(AgentAdapter):
 
 
 def build_adapter(agent: str, agent_path: str | None, extra: dict) -> AgentAdapter:
-    if agent == "kiri":
-        exe = agent_path or default_kiri_exe()
-        return KiriAdapter(exe, tools=extra.get("tools", KiriAdapter.DEFAULT_TOOLS),
+    if agent == "imo":
+        exe = agent_path or default_imo_exe()
+        return ImoAdapter(exe, tools=extra.get("tools", ImoAdapter.DEFAULT_TOOLS),
                            provider=extra.get("provider"), model=extra.get("model"),
                            api_key=extra.get("api_key"))
     if agent == "openclaw":
         exe = agent_path or "openclaw"
         return OpenClawAdapter(exe)
-    raise SystemExit(f"[ERROR] 未知 agent: {agent!r} (支持: kiri, openclaw)")
+    raise SystemExit(f"[ERROR] 未知 agent: {agent!r} (支持: imo, openclaw)")
 
 
 # ---------------------------------------------------------------------------
@@ -317,33 +317,33 @@ def check_env():
     mark(sys.version_info >= (3, 10), f"Python >= 3.10 (当前 {sys.version.split()[0]})",
          "安装 Python 3.10+ 并加入 PATH")
 
-    # kiri 探测
-    kiri_paths = []
+    # imo 探测
+    imo_paths = []
     if sys.platform == "win32":
-        kiri_paths = [str(PROJECT_ROOT / "output" / "kiri.exe"), "kiri.exe", "kiri"]
+        imo_paths = [str(PROJECT_ROOT / "output" / "imo.exe"), "imo.exe", "imo"]
     else:
-        kiri_paths = [str(PROJECT_ROOT / "output" / "kiri"), "kiri"]
-    kiri_found = None
-    for p in kiri_paths:
+        imo_paths = [str(PROJECT_ROOT / "output" / "imo"), "imo"]
+    imo_found = None
+    for p in imo_paths:
         if os.path.isabs(p) and Path(p).exists():
-            kiri_found = p
+            imo_found = p
             break
         if shutil.which(p):
-            kiri_found = p
+            imo_found = p
             break
-    kiri_ok = bool(kiri_found)
-    mark(kiri_ok, f"kiri 可执行文件 ({kiri_found or '未找到'})",
-         "把 kiri.exe 放到仓库父目录 output/ 下，或用 --agent-path 指定路径")
+    imo_ok = bool(imo_found)
+    mark(imo_ok, f"imo 可执行文件 ({imo_found or '未找到'})",
+         "把 imo.exe 放到仓库父目录 output/ 下，或用 --agent-path 指定路径")
 
-    # kiri 模型配置 (key): 不需要用户传, runner 自动读取配置文件/环境变量
-    conf = KiriAdapter._load_config(str(kiri_found or "kiri"))
+    # imo 模型配置 (key): 不需要用户传, runner 自动读取配置文件/环境变量
+    conf = ImoAdapter._load_config(str(imo_found or "imo"))
     key_ok = bool(conf.get("api_key"))
-    kiri_ready = kiri_ok and key_ok
+    imo_ready = imo_ok and key_ok
     mark(key_ok,
-         "kiri 模型 API Key" + (f" (provider={conf.get('provider')} model={conf.get('model')})" if conf.get("provider") else ""),
-         "不要去问用户要 key、也不要传 --api-key。kiri 会自动读取 output/kiri-data/console/config.json 里的 "
+         "imo 模型 API Key" + (f" (provider={conf.get('provider')} model={conf.get('model')})" if conf.get("provider") else ""),
+         "不要去问用户要 key、也不要传 --api-key。imo 会自动读取 output/imo-data/console/config.json 里的 "
          "provider/model/apiKey，或从环境变量读取；请去这些位置确认 key 已配置。若确无配置，如实告诉用户环境缺 key，"
-         "让用户在 kiri 控制台配置好后重跑 --check")
+         "让用户在 imo 控制台配置好后重跑 --check")
 
     # openclaw 探测 (非致命: 只有选 openclaw 驱动时才需要)
     openclaw_found = shutil.which("openclaw") or shutil.which("openclaw.exe")
@@ -353,13 +353,13 @@ def check_env():
          fatal=False)
 
     print("\n=== 结论 ===")
-    if kiri_ready:
-        print("kiri 已就绪，可直接运行：python -u harness-runner.py --agent kiri --runs 5")
+    if imo_ready:
+        print("imo 已就绪，可直接运行：python -u harness-runner.py --agent imo --runs 5")
         if not openclaw_ok:
             print("(openclaw 未安装，仅在用 openclaw 驱动时需要，可忽略)")
         return 0
     if openclaw_ok:
-        print("kiri 未就绪但 openclaw 可用，改用 openclaw 驱动：")
+        print("imo 未就绪但 openclaw 可用，改用 openclaw 驱动：")
         print("  冒烟: python -u harness-runner.py --agent openclaw --tasks l1-hello --runs 1")
         print("  全量: python -u harness-runner.py --agent openclaw --runs 5")
         print("(openclaw 模型配置由 openclaw 自身管理；若冒烟报错说明模型未配置好)")
@@ -432,23 +432,23 @@ def run_one(adapter: AgentAdapter, task: dict, ws: Path, timeout: int, run_index
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Harness 评测驱动 (kiri / openclaw)")
-    ap.add_argument("--agent", choices=["kiri", "openclaw"], default="kiri",
-                    help="使用的 agent 后端 (默认 kiri)")
+    ap = argparse.ArgumentParser(description="Harness 评测驱动 (imo / openclaw)")
+    ap.add_argument("--agent", choices=["imo", "openclaw"], default="imo",
+                    help="使用的 agent 后端 (默认 imo)")
     ap.add_argument("--agent-path", default=None,
-                    help="agent 可执行文件路径; 默认 kiri=../output/kiri.exe, openclaw=PATH 中的 openclaw")
+                    help="agent 可执行文件路径; 默认 imo=../output/imo.exe, openclaw=PATH 中的 openclaw")
     ap.add_argument("--runs", type=int, default=5, help="每个任务跑几次 (默认 5, 取平均作为最终成绩)")
     ap.add_argument("--tasks", default=None, help="逗号分隔的任务 id 列表 (如 l1-hello,l2-log-parser)")
     ap.add_argument("--level", type=int, default=None, help="只跑某一级 (1-5)")
     ap.add_argument("--timeout", type=int, default=600, help="单次 agent 调用超时秒数 (默认 600)")
     ap.add_argument("--keep-ws", action="store_true", help="保留临时 workspace (默认自动删除)")
-    ap.add_argument("--check", action="store_true", help="环境自检: 检测 Python/kiri/openclaw/API Key, 报告缺什么")
+    ap.add_argument("--check", action="store_true", help="环境自检: 检测 Python/imo/openclaw/API Key, 报告缺什么")
     ap.add_argument("--selftest", action="store_true", help="只做任务定义自检, 不调 agent")
-    ap.add_argument("--tools", default=KiriAdapter.DEFAULT_TOOLS,
-                    help="kiri 的 --tools 白名单 (默认 read,bash,edit,write,grep,find,ls)")
-    ap.add_argument("--provider", default=None, help="kiri provider (默认自动读 kiri config.json)")
-    ap.add_argument("--model", default=None, help="kiri 模型 (默认自动读 kiri config.json)")
-    ap.add_argument("--api-key", default=None, help="kiri API key (默认自动读 kiri config.json)")
+    ap.add_argument("--tools", default=ImoAdapter.DEFAULT_TOOLS,
+                    help="imo 的 --tools 白名单 (默认 read,bash,edit,write,grep,find,ls)")
+    ap.add_argument("--provider", default=None, help="imo provider (默认自动读 imo config.json)")
+    ap.add_argument("--model", default=None, help="imo 模型 (默认自动读 imo config.json)")
+    ap.add_argument("--api-key", default=None, help="imo API key (默认自动读 imo config.json)")
     ap.add_argument("--out-dir", default=None, help="结果输出目录 (默认 harness-bench/results)")
     args = ap.parse_args()
 

@@ -60,7 +60,7 @@ def gen_names_file() -> str:
 def t_l1_hello(ws):
     write_file(ws, "hello.txt", "Hello, world!\n")
     return ("Create a file named `result.txt` in the workspace. "
-            "Its content must be exactly: Hello, Kiri!\n"
+            "Its content must be exactly: Hello, imo!\n"
             "Do not create any other files.")
 
 def v_l1_hello(ws):
@@ -69,7 +69,7 @@ def v_l1_hello(ws):
     if not p.exists():
         return ["result.txt missing"]
     content = p.read_text(encoding="utf-8").strip()
-    if content != "Hello, Kiri!":
+    if content != "Hello, imo!":
         fails.append(f"result.txt content mismatch: {content!r}")
     # 不允许额外文件
     extra = [f.name for f in ws.iterdir() if f.name not in ("result.txt", "hello.txt")]

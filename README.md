@@ -4,7 +4,7 @@
 
 兼容两种 agent 后端：
 
-- **[kiri](https://github.com/Gejinmiao/kiri-portable)** — `kiri.exe -p <prompt> --mode json`（NDJSON 输出，逐轮累加 token usage）
+- **[imo](https://github.com/Gejinmiao/imo-portable)** — `imo.exe -p <prompt> --mode json`（NDJSON 输出，逐轮累加 token usage）
 - **OpenClaw** — `openclaw agent exec --cwd <ws> --message-file <file> --json`
 
 
@@ -17,19 +17,19 @@
 2. 确认 Python 3.10+ 可用（python --version）。
 
 第 2 步 · 环境自检（必做，不要跳过）
-3. 运行 python -u harness-runner.py --check，它会探测 Python / kiri / openclaw / 模型 API Key 是否就绪，并给出缺失项的补救提示；
+3. 运行 python -u harness-runner.py --check，它会探测 Python / imo / openclaw / 模型 API Key 是否就绪，并给出缺失项的补救提示；
 4. 根据输出补齐缺失项：
-   - kiri 缺失：把 kiri.exe 放到仓库父目录 output/ 下，或加入 PATH，或用 --agent-path 指定；
-   - openclaw 缺失：确认 openclaw 命令在 PATH（只用 openclaw 驱动时需要，用 kiri 可忽略）；
-   - API Key 缺失：不要向用户索要 key。kiri 会自动读取 output/kiri-data/console/config.json 里的 provider/model/apiKey；openclaw 用自身配置系统（环境变量如 DEEPSEEK_API_KEY、~/.openclaw/openclaw.json、openclaw models set）。运行命令时不要传 --api-key 参数，让 runner 自动读取。若确实找不到，如实告诉用户环境缺 key。
-5. 自检全部 OK 后继续；kiri 可用优先用 kiri，否则用 openclaw。
+   - imo 缺失：把 imo.exe 放到仓库父目录 output/ 下，或加入 PATH，或用 --agent-path 指定；
+   - openclaw 缺失：确认 openclaw 命令在 PATH（只用 openclaw 驱动时需要，用 imo 可忽略）；
+   - API Key 缺失：不要向用户索要 key。imo 会自动读取 output/imo-data/console/config.json 里的 provider/model/apiKey；openclaw 用自身配置系统（环境变量如 DEEPSEEK_API_KEY、~/.openclaw/openclaw.json、openclaw models set）。运行命令时不要传 --api-key 参数，让 runner 自动读取。若确实找不到，如实告诉用户环境缺 key。
+5. 自检全部 OK 后继续；imo 可用优先用 imo，否则用 openclaw。
 
 第 3 步 · 冒烟验证（小步快跑，别直接上全量）
-6. 先只跑 1 个最简单任务验证整条链路：python -u harness-runner.py --agent kiri --tasks l1-hello --runs 1（仅 1 次调用）；
+6. 先只跑 1 个最简单任务验证整条链路：python -u harness-runner.py --agent imo --tasks l1-hello --runs 1（仅 1 次调用）；
 7. 看到 [PASS] l1-hello 再继续；若失败，先修环境/配置问题，不要带病跑全量（全量 130 次调用，中途失败损失很大）。
 
 第 4 步 · 全量评测
-8. 运行 python -u harness-runner.py --agent kiri --runs 5（26 任务 × 5 次 = 130 次调用，耗时较长属正常，耐心等待，不要中断）；
+8. 运行 python -u harness-runner.py --agent imo --runs 5（26 任务 × 5 次 = 130 次调用，耗时较长属正常，耐心等待，不要中断）；
 9. 若必须中断或某任务批量失败，可用 --tasks <id列表> 或 --level <1-5> 分段补跑。
 
 第 5 步 · 汇报结果
@@ -75,19 +75,19 @@
 
 - Python 3.10+
 - 一个可用的 agent 后端：
-  - **kiri**：把 `kiri.exe` 放到仓库父目录 `output/` 下，或加入 PATH，或 `--agent-path` 指定
+  - **imo**：把 `imo.exe` 放到仓库父目录 `output/` 下，或加入 PATH，或 `--agent-path` 指定
   - **OpenClaw**：`openclaw` 命令加入 PATH
-- 模型 API Key（kiri 会自动读取其 `kiri-data/console/config.json`，也可用参数显式指定）
+- 模型 API Key（imo 会自动读取其 `imo-data/console/config.json`，也可用参数显式指定）
 
 ### 2. 配置模型
 
-**kiri**（三种方式任选）：
+**imo**（三种方式任选）：
 
 ```bash
-# 方式一：kiri 自己的配置文件 output/kiri-data/console/config.json（自动加载）
+# 方式一：imo 自己的配置文件 output/imo-data/console/config.json（自动加载）
 # 方式二：命令行参数
-python -u harness-runner.py --agent kiri --provider deepseek --model deepseek-v4-flash --api-key sk-xxxx
-# 方式三：环境变量（kiri 原生支持）
+python -u harness-runner.py --agent imo --provider deepseek --model deepseek-v4-flash --api-key sk-xxxx
+# 方式三：环境变量（imo 原生支持）
 ```
 
 **OpenClaw**：OpenClaw 用自己的配置系统管理模型，runner 不传 key，只要 `openclaw` 命令可用且已配置好模型：
@@ -110,14 +110,14 @@ openclaw models status
 
 ```bash
 # 全量 26 任务，每任务 5 次取平均（默认行为）
-python -u harness-runner.py --agent kiri
+python -u harness-runner.py --agent imo
 
 # 换 OpenClaw 驱动
 python -u harness-runner.py --agent openclaw
 
 # 只跑某级 / 某几个任务
-python -u harness-runner.py --agent kiri --level 4
-python -u harness-runner.py --agent kiri --tasks l1-hello,l4-riddle-driving
+python -u harness-runner.py --agent imo --level 4
+python -u harness-runner.py --agent imo --tasks l1-hello,l4-riddle-driving
 
 # 自检：不调 agent，校验 26 个任务定义是否正常
 python harness-runner.py --selftest
@@ -137,16 +137,16 @@ python harness-runner.py --selftest
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
-| `--agent` | `kiri` | agent 后端：`kiri` 或 `openclaw` |
+| `--agent` | `imo` | agent 后端：`imo` 或 `openclaw` |
 | `--agent-path` | 自动 | agent 可执行文件路径 |
 | `--runs` | `5` | 每个任务跑几次（最终成绩取平均） |
 | `--tasks` | 全部 | 逗号分隔的任务 id，如 `l1-hello,l2-log-parser` |
 | `--level` | 全部 | 只跑某一级（1-5） |
 | `--timeout` | `600` | 单次 agent 调用超时秒数 |
-| `--provider/--model/--api-key` | 自动读配置 | kiri 模型配置（显式指定优先） |
-| `--tools` | `read,bash,edit,write,grep,find,ls` | kiri 工具白名单 |
+| `--provider/--model/--api-key` | 自动读配置 | imo 模型配置（显式指定优先） |
+| `--tools` | `read,bash,edit,write,grep,find,ls` | imo 工具白名单 |
 | `--keep-ws` | 关 | 保留临时 workspace（调试用） |
-| `--check` | 关 | **环境自检**：探测 Python/kiri/openclaw/API Key，报告缺什么、怎么补（别的 agent 第一步先跑这个） |
+| `--check` | 关 | **环境自检**：探测 Python/imo/openclaw/API Key，报告缺什么、怎么补（别的 agent 第一步先跑这个） |
 | `--selftest` | 关 | 只校验任务定义，不调 agent |
 
 ---
@@ -171,19 +171,19 @@ harness-bench/
 > 2. 确认 Python 3.10+ 可用（`python --version`）。
 >
 > **第 2 步 · 环境自检（必做，不要跳过）**
-> 3. 运行 `python -u harness-runner.py --check`，它会探测 Python / kiri / openclaw / 模型 API Key 是否就绪，并给出缺失项的补救提示；
+> 3. 运行 `python -u harness-runner.py --check`，它会探测 Python / imo / openclaw / 模型 API Key 是否就绪，并给出缺失项的补救提示；
 > 4. 根据输出补齐缺失项：
->    - **kiri 缺失**：把 `kiri.exe` 放到仓库父目录 `output/` 下，或加入 PATH，或用 `--agent-path` 指定；
->    - **openclaw 缺失**：确认 `openclaw` 命令在 PATH（只在你选择 openclaw 驱动时需要，用 kiri 可忽略）；
->    - **API Key 缺失**：**不要向用户索要 key**。kiri 会自动读取其配置文件 `output/kiri-data/console/config.json` 里的 `provider/model/apiKey`；openclaw 用自身配置系统（环境变量如 `DEEPSEEK_API_KEY`、`~/.openclaw/openclaw.json`、或 `openclaw models set`）。去这些位置确认 key 已配置即可——运行命令时**不要传 `--api-key` 参数**，让 runner 自动读取。若确实找不到，如实告诉用户环境缺 key。
-> 5. 自检全部 OK 后继续；kiri 可用优先用 kiri，否则用 openclaw。
+>    - **imo 缺失**：把 `imo.exe` 放到仓库父目录 `output/` 下，或加入 PATH，或用 `--agent-path` 指定；
+>    - **openclaw 缺失**：确认 `openclaw` 命令在 PATH（只在你选择 openclaw 驱动时需要，用 imo 可忽略）；
+>    - **API Key 缺失**：**不要向用户索要 key**。imo 会自动读取其配置文件 `output/imo-data/console/config.json` 里的 `provider/model/apiKey`；openclaw 用自身配置系统（环境变量如 `DEEPSEEK_API_KEY`、`~/.openclaw/openclaw.json`、或 `openclaw models set`）。去这些位置确认 key 已配置即可——运行命令时**不要传 `--api-key` 参数**，让 runner 自动读取。若确实找不到，如实告诉用户环境缺 key。
+> 5. 自检全部 OK 后继续；imo 可用优先用 imo，否则用 openclaw。
 >
 > **第 3 步 · 冒烟验证（小步快跑，别直接上全量）**
-> 6. 先只跑 1 个最简单任务验证整条链路：`python -u harness-runner.py --agent kiri --tasks l1-hello --runs 1`（仅 1 次调用）；
+> 6. 先只跑 1 个最简单任务验证整条链路：`python -u harness-runner.py --agent imo --tasks l1-hello --runs 1`（仅 1 次调用）；
 > 7. 看到 `[PASS] l1-hello` 再继续下一步；若失败，先修环境/配置问题，不要带病跑全量（全量 130 次调用，中途失败损失很大）。
 >
 > **第 4 步 · 全量评测**
-> 8. 运行 `python -u harness-runner.py --agent kiri --runs 5`（26 任务 × 5 次 = 130 次调用，耗时较长属正常，耐心等待，不要中断）；
+> 8. 运行 `python -u harness-runner.py --agent imo --runs 5`（26 任务 × 5 次 = 130 次调用，耗时较长属正常，耐心等待，不要中断）；
 > 9. 若必须中断或某任务批量失败，可用 `--tasks <id列表>` 或 `--level <1-5>` 分段补跑。
 >
 > **第 5 步 · 汇报结果**
